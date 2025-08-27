@@ -130,6 +130,7 @@
         <DCCReference Include="uConnStorage.pas"/>
         <DCCReference Include="uCryptoHelper_AES.pas"/>
         <DCCReference Include="uDPAPIHelper.pas"/>
+        <DCCReference Include="uPasswordHash.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

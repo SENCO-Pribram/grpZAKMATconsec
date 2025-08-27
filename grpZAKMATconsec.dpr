@@ -5,7 +5,8 @@ uses
   Unit1 in 'Unit1.pas' {Form1},
   uConnStorage in 'uConnStorage.pas',
   uCryptoHelper_AES in 'uCryptoHelper_AES.pas',
-  uDPAPIHelper in 'uDPAPIHelper.pas';
+  uDPAPIHelper in 'uDPAPIHelper.pas',
+  uPasswordHash in 'uPasswordHash.pas';
 
 {$R *.res}
 
