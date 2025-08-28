@@ -118,15 +118,37 @@ end;
 
 { ===== Cesty ===== }
 
+//function GetAppDataFilePath(const AppName, FileName: string): string;
+//var
+//  base, dir: string;
+//begin
+//  base := GetEnvironmentVariable('APPDATA'); // C:\Users\...\AppData\Roaming
+//  if base = '' then
+//    base := TPath.GetHomePath; // fallback
+//  dir := TPath.Combine(base, AppName);
+//  ForceDirectories(dir);
+//  Result := TPath.Combine(dir, FileName);
+//end;
+
 function GetAppDataFilePath(const AppName, FileName: string): string;
 var
   base, dir: string;
 begin
-  base := GetEnvironmentVariable('APPDATA'); // C:\Users\...\AppData\Roaming
+  Result := ''; // výchozí hodnota
+
+  base := GetEnvironmentVariable('APPDATA'); // typicky C:\Users\...\AppData\Roaming
   if base = '' then
     base := TPath.GetHomePath; // fallback
+
   dir := TPath.Combine(base, AppName);
-  ForceDirectories(dir);
+
+  try
+    if not ForceDirectories(dir) then
+      Exit; // nepodařilo se vytvořit složku -> vrátí ''
+  except
+    Exit; // zachycená výjimka -> vrátí ''
+  end;
+
   Result := TPath.Combine(dir, FileName);
 end;
 
@@ -242,23 +264,99 @@ begin
   end;
 end;
 
+//function DPAPI_LoadSecretFromFile(const AppName, FileName: string;
+//  const UserScope: Boolean; const Entropy: string): string;
+//var
+//  blob: TBytes;
+//  path: string;
+//begin
+//  path := GetAppDataFilePath(AppName, FileName);
+//  if not TFile.Exists(path) then
+//    raise Exception.Create('DPAPI tajemství nenalezeno: ' + path);
+//
+//  blob := TFile.ReadAllBytes(path);
+//  try
+//    Result := UnprotectBlobToString(blob, UserScope, Entropy);
+//  finally
+//    WipeBytes(blob);
+//  end;
+//end;
+
 function DPAPI_LoadSecretFromFile(const AppName, FileName: string;
   const UserScope: Boolean; const Entropy: string): string;
 var
   blob: TBytes;
   path: string;
 begin
+  Result := '';
   path := GetAppDataFilePath(AppName, FileName);
-  if not TFile.Exists(path) then
-    raise Exception.Create('DPAPI tajemství nenalezeno: ' + path);
 
-  blob := TFile.ReadAllBytes(path);
+  // 1) Neplatná/nezískaná cesta
+  if path = '' then
+    raise Exception.CreateFmt('Nelze určit cestu k MasterKey (AppName="%s", FileName="%s").', [AppName, FileName]);
+
+  // 2) Soubor neexistuje
+  if not TFile.Exists(path) then
+    raise Exception.Create('MasterKey nenalezen v: ' + path);
+
+  // 3) Načtení souboru
+  try
+    blob := TFile.ReadAllBytes(path);
+  except
+    on E: Exception do
+      raise Exception.CreateFmt('Chyba při čtení MasterKey souboru "%s": %s', [path, E.Message]);
+  end;
+
+  // 4) DPAPI rozšifrování
   try
     Result := UnprotectBlobToString(blob, UserScope, Entropy);
-  finally
-    WipeBytes(blob);
+  except
+    on E: Exception do
+      raise Exception.CreateFmt('DPAPI dešifrování selhalo pro "%s": %s', [path, E.Message]);
+  end;
+
+  // 5) Wipe buffer
+  WipeBytes(blob);
+end;
+
+
+function TryDPAPI_LoadSecretFromFile(const AppName, FileName: string;
+  const UserScope: Boolean; const Entropy: string; out Secret: string; out ErrMsg: string): Boolean;
+var
+  blob: TBytes;
+  path: string;
+begin
+  Result := False;
+  Secret := '';
+  ErrMsg := '';
+  path := GetAppDataFilePath(AppName, FileName);
+
+  if path = '' then
+  begin
+    ErrMsg := Format('Nelze určit cestu k MasterKey (AppName="%s", FileName="%s").', [AppName, FileName]);
+    Exit;
+  end;
+
+  if not TFile.Exists(path) then
+  begin
+    ErrMsg := 'MasterKey nenalezen v: ' + path;
+    Exit;
+  end;
+
+  try
+    blob := TFile.ReadAllBytes(path);
+    try
+      Secret := UnprotectBlobToString(blob, UserScope, Entropy);
+      Result := True;
+    finally
+      WipeBytes(blob);
+    end;
+  except
+    on E: Exception do
+      ErrMsg := Format('Načtení/DPAPI selhalo pro "%s": %s', [path, E.Message]);
   end;
 end;
+
 
 initialization
   InitSecureZero;
