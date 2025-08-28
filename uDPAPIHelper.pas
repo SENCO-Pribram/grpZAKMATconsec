@@ -1,20 +1,12 @@
 ﻿ {
  - Účel: bezpečně uložit a načíst master heslo k .sec lokálně (per-user / per-machine).
-
  - Technika: Windows DPAPI (CryptProtectData, CryptUnprotectData), %APPDATA%\AppName\….
-
  - API:
-
      - DPAPI_SaveSecretToFile(Secret, AppName, FileName; UserScope; Entropy)
-
      - DPAPI_LoadSecretFromFile(AppName, FileName; UserScope; Entropy): string
-
      - GetAppDataFilePath(AppName, FileName)
-
  - Použití: „trezor“ pro master heslo (aby uživatel nemusel nic zadávat při běhu).
-
  - Pozn.: Neřeší user login hesla, jen bezpečný storage lokálních tajemství.
-
 }
 
 unit uDPAPIHelper;

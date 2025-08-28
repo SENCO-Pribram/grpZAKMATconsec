@@ -1,18 +1,11 @@
 ﻿{
  - Účel: bezpečné uložení connection stringů do souboru .sec.
-
  - Technika: AES-256/CBC + salt + IV + HMAC-SHA256, formát souboru, self-wipe bufferů.
-
  - API:
-
      - SaveEncryptedConnectStringToDat_HMAC(ConnStr, Password, AppName, FileName)
-
      - LoadEncryptedConnectStringFromDat_HMAC(Password, AppName, FileName)
-
      - (případně ...ToFile_HMAC/FromFile_HMAC(Password, FullPath) pro UNC/SMB)
-
  - Použití: vezmeš master heslo (z DPAPI nebo ručně zadané), uložíš/načteš .sec.
-
  - Pozn.: Reverzibilní—musí umět dešifrovat zpět.
 }
 
@@ -622,6 +615,11 @@ begin
     WipeBytes(Mix); WipeBytes(MacKey); WipeBytes(HmacCalc); WipeBytes(HmacStored);
   end;
 end;
+
+
+
+
+
 
 end.
 

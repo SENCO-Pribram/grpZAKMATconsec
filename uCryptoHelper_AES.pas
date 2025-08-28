@@ -1,18 +1,12 @@
 ﻿{
  - Účel: přenositelná „password-only“ šifra pro libovolný text (bez DPAPI).
-
  - Technika: PBKDF2-HMAC-SHA256 (iterations, salt) → AES-256/CBC; IV + HMAC; Base64 kontejner.
-
  - API:
-
      - TPasswordCrypto.EncryptTextPBKDF2(Plain, Password, Iter): string
-
      - TPasswordCrypto.DecryptTextPBKDF2(ContainerB64, Password): string
-
  - Použití: když potřebuješ tajemství přenášet jen pod sdíleným heslem (transport / re-wrap).
-
  - Pozn.: Reverzibilní—nepoužívat pro ukládání login hesel uživatelů.
-}
+ }
 
 unit uCryptoHelper_AES;
 
