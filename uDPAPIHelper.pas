@@ -27,6 +27,11 @@ procedure DPAPI_SaveSecretToFile(const Secret, AppName, FileName: string;
 function DPAPI_LoadSecretFromFile(const AppName, FileName: string;
   const UserScope: Boolean = True; const Entropy: string = ''): string;
 
+{ Načte a dešifruje tajemství uložené pomocí DPAPI_SaveSecretToFile. }
+{ nepadne do chyby, hlásí showmessage}
+function TryDPAPI_LoadSecretFromFile(const AppName, FileName: string;
+  const UserScope: Boolean; const Entropy: string; out Secret: string; out ErrMsg: string): Boolean;
+
 { Helper pro cestu do %APPDATA%\AppName\FileName }
 function GetAppDataFilePath(const AppName, FileName: string): string;
 
