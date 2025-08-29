@@ -38,6 +38,12 @@ function GetAppDataFilePath(const AppName, FileName: string): string;
 { helper: získá SID jako string   }
 function GetCurrentUserSidString: string;
 
+{ Primární: GetUserNameExW(NameSamCompatible) -> "DOMAIN\User"  }
+function GetCurrentUserDomainSlashName: string;
+
+{ --- Funkce: DOMAIN a User zvlášť (bez výjimek, vrací True/False) ---}
+function GetCurrentUserDomainAndName(out Domain, User: string): Boolean;
+
 implementation
 
 type
@@ -436,6 +442,165 @@ begin
       CloseHandle(hTok);
   end;
 end;
+
+
+
+// --- Deklarace (pokud je ještě nemáš v unitě) ---
+type
+  EXTENDED_NAME_FORMAT = ULONG;
+
+const
+  NameSamCompatible: EXTENDED_NAME_FORMAT = 2; // "DOMAIN\UserName"
+  ERROR_MORE_DATA = 234;
+
+function GetUserNameExW(NameFormat: EXTENDED_NAME_FORMAT; lpNameBuffer: LPWSTR; var nSize: ULONG): BOOL; stdcall;
+  external 'secur32.dll';
+
+function LookupAccountSidW(lpSystemName: LPCWSTR; Sid: Pointer; Name: LPWSTR; var cchName: DWORD;
+  ReferencedDomainName: LPWSTR; var cchReferencedDomainName: DWORD; var peUse: DWORD): BOOL; stdcall;
+  external 'advapi32.dll';
+
+// (musíš mít také deklarace OpenProcessToken, GetTokenInformation, TOKEN_USER/PSID atd. – jak jsme přidávali dřív)
+
+
+// --- Funkce: DOMAIN a User zvlášť (bez výjimek, vrací True/False) ---
+function GetCurrentUserDomainAndName(out Domain, User: string): Boolean;
+var
+  size: ULONG;
+  buf: PWideChar;
+  s, dom, usr: string;
+  p: Integer;
+
+  // fallback proměnné
+  hTok: THandle;
+  need: DWORD;
+  pUser: PTOKEN_USER;
+  nameLen, domLen, useVal: DWORD;
+  nameBuf, domBuf: PWideChar;
+begin
+  Result := False;
+  Domain := '';
+  User := '';
+
+  // 1) Primární: GetUserNameExW(NameSamCompatible) -> "DOMAIN\User"
+  size := 0;
+  GetUserNameExW(NameSamCompatible, nil, size);
+  if (size > 0) and (GetLastError = ERROR_MORE_DATA) then
+  begin
+    GetMem(buf, size * SizeOf(WideChar));
+    try
+      if GetUserNameExW(NameSamCompatible, buf, size) then
+      begin
+        s := buf; // UnicodeString
+        // rozdělit na DOMAIN a user
+        p := Pos('\', s);
+        if p > 0 then
+        begin
+          dom := Copy(s, 1, p-1);
+          usr := Copy(s, p+1, MaxInt);
+        end
+        else
+        begin
+          // žádná doména – může být lokální účet
+          dom := '';
+          usr := s;
+        end;
+        Domain := dom;
+        User := usr;
+        Exit(True);
+      end;
+    finally
+      FreeMem(buf);
+    end;
+  end;
+
+  // 2) Fallback: přes SID -> LookupAccountSidW
+  hTok := 0;
+  if not OpenProcessToken(GetCurrentProcess, TOKEN_QUERY, hTok) then
+    Exit(False);
+  try
+    need := 0;
+    GetTokenInformation(hTok, TokenUser, nil, 0, need);
+    if need = 0 then
+      Exit(False);
+
+    GetMem(pUser, need);
+    try
+      if not GetTokenInformation(hTok, TokenUser, pUser, need, need) then
+        Exit(False);
+
+      nameLen := 0;
+      domLen := 0;
+      useVal := 0;
+      LookupAccountSidW(nil, pUser.User.Sid, nil, nameLen, nil, domLen, useVal);
+      if (GetLastError <> ERROR_INSUFFICIENT_BUFFER) or (nameLen = 0) or (domLen = 0) then
+        Exit(False);
+
+      GetMem(nameBuf, nameLen * SizeOf(WideChar));
+      GetMem(domBuf, domLen * SizeOf(WideChar));
+      try
+        if LookupAccountSidW(nil, pUser.User.Sid, nameBuf, nameLen, domBuf, domLen, useVal) then
+        begin
+          if (domBuf <> nil) and (domBuf^ <> #0) then
+            Domain := domBuf
+          else
+            Domain := ''; // lokální účet bez domény
+
+          if (nameBuf <> nil) and (nameBuf^ <> #0) then
+            User := nameBuf
+          else
+            User := '';
+
+          Result := (User <> '');
+        end;
+      finally
+        if nameBuf <> nil then FreeMem(nameBuf);
+        if domBuf  <> nil then FreeMem(domBuf);
+      end;
+    finally
+      FreeMem(pUser);
+    end;
+  finally
+    if hTok <> 0 then CloseHandle(hTok);
+  end;
+end;
+
+// --- Pohodlné obaly (volitelné) ---
+function GetCurrentUserDomain: string;
+var
+  d, u: string;
+begin
+  if GetCurrentUserDomainAndName(d, u) then
+    Result := d
+  else
+    Result := '';
+end;
+
+function GetCurrentUserNameOnly: string;
+var
+  d, u: string;
+begin
+  if GetCurrentUserDomainAndName(d, u) then
+    Result := u
+  else
+    Result := '';
+end;
+
+function GetCurrentUserDomainSlashName: string;
+var
+  d, u: string;
+begin
+  if GetCurrentUserDomainAndName(d, u) then
+  begin
+    if d <> '' then
+      Result := d + '\' + u
+    else
+      Result := u;
+  end
+  else
+    Result := '';
+end;
+
 
 
 initialization
