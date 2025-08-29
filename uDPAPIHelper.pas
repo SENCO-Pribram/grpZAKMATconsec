@@ -1,4 +1,4 @@
-﻿ {
+ {
  - Účel: bezpečně uložit a načíst master heslo k .sec lokálně (per-user / per-machine).
  - Technika: Windows DPAPI (CryptProtectData, CryptUnprotectData), %APPDATA%\AppName\….
  - API:
@@ -28,7 +28,7 @@ function DPAPI_LoadSecretFromFile(const AppName, FileName: string;
   const UserScope: Boolean = True; const Entropy: string = ''): string;
 
 { Načte a dešifruje tajemství uložené pomocí DPAPI_SaveSecretToFile. }
-{ nepadne do chyby, hlásí showmessage}
+{Hodí se tam, kde nechceš přerušit běh (např. UI), ale jen zobrazit chybu:}
 function TryDPAPI_LoadSecretFromFile(const AppName, FileName: string;
   const UserScope: Boolean; const Entropy: string; out Secret: string; out ErrMsg: string): Boolean;
 
