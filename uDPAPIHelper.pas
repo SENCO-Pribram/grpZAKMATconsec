@@ -32,6 +32,25 @@ function DPAPI_LoadSecretFromFile(const AppName, FileName: string;
 function TryDPAPI_LoadSecretFromFile(const AppName, FileName: string;
   const UserScope: Boolean; const Entropy: string; out Secret: string; out ErrMsg: string): Boolean;
 
+
+{ Uloží tajemství (string) do %APPDATA%\AppName\FileName jako DPAPI-chráněný blob.
+  UserScope=True  → vázané na přihlášeného uživatele (doporučeno).
+  UserScope=False → vázané na počítač (LOCAL_MACHINE).
+  Entropy je volitelná „dodatečná sůl“ – musí být stejná pro Save/Load. }
+{ ukládání s description  SID, DOMAIN, UZIVATEL}
+procedure DPAPI_SaveSecretToFile_WithDescr(const Secret, AppName, FileName, Description: string;
+  const UserScope: Boolean = True; const Entropy: string = '');
+
+
+{ Načte a dešifruje tajemství uložené pomocí DPAPI_SaveSecretToFile. }
+{ čtení s návratem description  SID, DOMAIN, UZIVATEL}
+function DPAPI_LoadSecretFromFile_WithDescr(const AppName, FileName: string;
+  const UserScope: Boolean; const Entropy: string; out Description: string): string;
+
+
+
+
+
 { Helper pro cestu do %APPDATA%\AppName\FileName }
 function GetAppDataFilePath(const AppName, FileName: string): string;
 
@@ -370,6 +389,172 @@ begin
       ErrMsg := Format('Načtení/DPAPI selhalo pro "%s": %s', [path, E.Message]);
   end;
 end;
+
+
+
+
+
+
+// ukládání s description
+procedure DPAPI_SaveSecretToFile_WithDescr(const Secret, AppName, FileName, Description: string;
+  const UserScope: Boolean = True; const Entropy: string = '');
+var
+  path: string;
+  InBlob, OutBlob, EntBlob: DATA_BLOB;
+  InBytes, EntBytes: TBytes;
+  Flags: DWORD;
+begin
+  // 1) Cílová cesta
+  path := GetAppDataFilePath(AppName, FileName);
+  if path = '' then
+    raise Exception.CreateFmt('Nelze určit cílovou cestu (AppName="%s", FileName="%s").', [AppName, FileName]);
+  ForceDirectories(ExtractFilePath(path));
+
+  // 2) Připrav vstupy
+  InBytes  := TEncoding.UTF8.GetBytes(Secret);
+  EntBytes := TEncoding.UTF8.GetBytes(Entropy);
+
+  ZeroMemory(@InBlob, SizeOf(InBlob));
+  ZeroMemory(@OutBlob, SizeOf(OutBlob));
+  ZeroMemory(@EntBlob, SizeOf(EntBlob));
+
+  if Length(InBytes) > 0 then
+  begin
+    InBlob.cbData := Length(InBytes);
+    InBlob.pbData := PBYTE(InBytes);
+  end;
+
+  if Length(EntBytes) > 0 then
+  begin
+    EntBlob.cbData := Length(EntBytes);
+    EntBlob.pbData := PBYTE(EntBytes);
+  end;
+
+  // 3) DPAPI volání
+  Flags := CRYPTPROTECT_UI_FORBIDDEN;
+  if not UserScope then
+    Flags := Flags or CRYPTPROTECT_LOCAL_MACHINE;
+
+  // Pozn.: Description je WideChar řetězec – NENÍ tajný, jen metainformace.
+  if not CryptProtectData(@InBlob, PWideChar(Description), @EntBlob, nil, nil, Flags, @OutBlob) then
+    RaiseLastOSError;
+
+  try
+    // 4) Zápis na disk
+    if OutBlob.cbData > 0 then
+    begin
+      var bytes: TBytes;
+      SetLength(bytes, OutBlob.cbData);
+      Move(OutBlob.pbData^, bytes[0], OutBlob.cbData);
+      TFile.WriteAllBytes(path, bytes);
+      // wipe dočasného bufferu s blobem (není nutné, ale konzistentní)
+      if Length(bytes) > 0 then FillChar(bytes[0], Length(bytes), 0);
+    end
+    else
+      TFile.WriteAllBytes(path, nil);
+  finally
+    // 5) Uvolnění paměti alokované DPAPI
+    if OutBlob.pbData <> nil then
+      LocalFree(HLOCAL(OutBlob.pbData));
+    // 6) Wipe vstupů v RAM
+    if Length(InBytes) > 0 then FillChar(InBytes[0], Length(InBytes), 0);
+    if Length(EntBytes) > 0 then FillChar(EntBytes[0], Length(EntBytes), 0);
+  end;
+end;
+
+
+
+
+
+
+// čtení s návratem description
+function DPAPI_LoadSecretFromFile_WithDescr(const AppName, FileName: string;
+  const UserScope: Boolean; const Entropy: string; out Description: string): string;
+var
+  path: string;
+  blob, entBytes, outBytes: TBytes;
+  InBlob, OutBlob, EntBlob: DATA_BLOB;
+  Flags: DWORD;
+  DescPW: PWideChar; // DPAPI vrátí ukazatel na description (alokuje OS)
+begin
+  Result := '';
+  Description := '';
+
+  // 1) Najdi soubor
+  path := GetAppDataFilePath(AppName, FileName);
+  if path = '' then
+    raise Exception.CreateFmt('Nelze určit cestu k MasterKey (AppName="%s", FileName="%s").', [AppName, FileName]);
+  if not TFile.Exists(path) then
+    raise Exception.Create('MasterKey nenalezen v: ' + path);
+
+  // 2) Načti blob
+  blob := TFile.ReadAllBytes(path);
+
+  // 3) Připrav DATA_BLOBy
+  ZeroMemory(@InBlob, SizeOf(InBlob));
+  ZeroMemory(@OutBlob, SizeOf(OutBlob));
+  ZeroMemory(@EntBlob, SizeOf(EntBlob));
+
+  if Length(blob) > 0 then
+  begin
+    InBlob.cbData := Length(blob);
+    InBlob.pbData := PBYTE(blob);
+  end;
+
+  entBytes := TEncoding.UTF8.GetBytes(Entropy);
+  if Length(entBytes) > 0 then
+  begin
+    EntBlob.cbData := Length(entBytes);
+    EntBlob.pbData := PBYTE(entBytes);
+  end;
+
+  // 4) Flagy DPAPI
+  Flags := CRYPTPROTECT_UI_FORBIDDEN;
+  if not UserScope then
+    Flags := Flags or CRYPTPROTECT_LOCAL_MACHINE;
+
+  // 5) Decrypt + ziskání description
+  DescPW := nil;
+  if not CryptUnprotectData(@InBlob, @DescPW, @EntBlob, nil, nil, Flags, @OutBlob) then
+    RaiseLastOSError;
+
+  try
+    // description (není tajné, ale uvolňuje se přes LocalFree)
+    if DescPW <> nil then
+      Description := DescPW;
+
+    // převod výstupních bajtů na string (UTF-8)
+    SetLength(outBytes, OutBlob.cbData);
+    if OutBlob.cbData > 0 then
+      Move(OutBlob.pbData^, outBytes[0], OutBlob.cbData);
+    Result := TEncoding.UTF8.GetString(outBytes);
+    // volitelné wipe plaintextu v RAM
+    if Length(outBytes) > 0 then
+      FillChar(outBytes[0], Length(outBytes), 0);
+  finally
+    // uvolnění OS alokací
+    if DescPW <> nil then
+      LocalFree(HLOCAL(DescPW));
+    if OutBlob.pbData <> nil then
+      LocalFree(HLOCAL(OutBlob.pbData));
+    // wipe inputů
+    if Length(entBytes) > 0 then
+      FillChar(entBytes[0], Length(entBytes), 0);
+    if Length(blob) > 0 then
+      FillChar(blob[0], Length(blob), 0);
+  end;
+end;
+
+
+
+
+
+
+
+
+
+
+
 
 // ====== Minimalní deklarace pro čtení SID aktuálního uživatele ======
 type
