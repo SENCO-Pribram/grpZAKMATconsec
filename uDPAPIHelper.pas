@@ -1,4 +1,4 @@
- {
+﻿ {
  - Účel: bezpečně uložit a načíst master heslo k .sec lokálně (per-user / per-machine).
  - Technika: Windows DPAPI (CryptProtectData, CryptUnprotectData), %APPDATA%\AppName\….
  - API:
@@ -34,6 +34,9 @@ function TryDPAPI_LoadSecretFromFile(const AppName, FileName: string;
 
 { Helper pro cestu do %APPDATA%\AppName\FileName }
 function GetAppDataFilePath(const AppName, FileName: string): string;
+
+{ helper: získá SID jako string   }
+function GetCurrentUserSidString: string;
 
 implementation
 
@@ -359,6 +362,78 @@ begin
   except
     on E: Exception do
       ErrMsg := Format('Načtení/DPAPI selhalo pro "%s": %s', [path, E.Message]);
+  end;
+end;
+
+// ====== Minimalní deklarace pro čtení SID aktuálního uživatele ======
+type
+  PSID = Pointer;
+
+  SID_AND_ATTRIBUTES = record
+    Sid: PSID;
+    Attributes: DWORD;
+  end;
+
+  PTOKEN_USER = ^TOKEN_USER;
+  TOKEN_USER = record
+    User: SID_AND_ATTRIBUTES;
+  end;
+
+// Starší Delphi nemusí mít enum; stačí konstanta
+const
+  TokenUser = 1; // TOKEN_INFORMATION_CLASS hodnoty: 1 = TokenUser
+
+function OpenProcessToken(ProcessHandle: THandle; DesiredAccess: DWORD;
+  var TokenHandle: THandle): BOOL; stdcall; external 'advapi32.dll';
+
+function GetTokenInformation(TokenHandle: THandle; TokenInformationClass: DWORD;
+  TokenInformation: Pointer; TokenInformationLength: DWORD;
+  var ReturnLength: DWORD): BOOL; stdcall; external 'advapi32.dll';
+
+function ConvertSidToStringSidW(Sid: PSID; var StringSid: LPWSTR): BOOL; stdcall;
+  external 'advapi32.dll';
+
+// CloseHandle/GetCurrentProcess jsou v kernel32 (už bývá v unitě Windows)
+
+// helper: získá SID jako string
+function GetCurrentUserSidString: string;
+var
+  hTok: THandle;
+  need: DWORD;
+  pUser: PTOKEN_USER;
+  sidStr: LPWSTR;
+begin
+  Result := '';
+  hTok := 0;
+  if not OpenProcessToken(GetCurrentProcess, TOKEN_QUERY, hTok) then
+    RaiseLastOSError;
+  try
+    need := 0;
+    // 1. zjištění potřebné délky
+    GetTokenInformation(hTok, TokenUser, nil, 0, need);
+    if need = 0 then
+      RaiseLastOSError;
+
+    GetMem(pUser, need);
+    try
+      if not GetTokenInformation(hTok, TokenUser, pUser, need, need) then
+        RaiseLastOSError;
+
+      sidStr := nil;
+      if not ConvertSidToStringSidW(pUser.User.Sid, sidStr) then
+        RaiseLastOSError;
+      try
+        Result := sidStr; // WideChar -> UnicodeString
+      finally
+        if sidStr <> nil then
+          LocalFree(HLOCAL(sidStr));
+      end;
+    finally
+      FreeMem(pUser);
+    end;
+  finally
+    if hTok <> 0 then
+      CloseHandle(hTok);
   end;
 end;
 
