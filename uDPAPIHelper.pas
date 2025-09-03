@@ -14,23 +14,32 @@ unit uDPAPIHelper;
 interface
 
 uses
-  System.SysUtils, System.Classes, System.IOUtils, Windows;
+  System.SysUtils, System.Classes, System.IOUtils, Windows, System.NetEncoding;
 
 { Uloží tajemství (string) do %APPDATA%\AppName\FileName jako DPAPI-chráněný blob.
   UserScope=True  → vázané na přihlášeného uživatele (doporučeno).
   UserScope=False → vázané na počítač (LOCAL_MACHINE).
   Entropy je volitelná „dodatečná sůl“ – musí být stejná pro Save/Load. }
-procedure DPAPI_SaveSecretToFile(const Secret, AppName, FileName: string;
-  const UserScope: Boolean = True; const Entropy: string = '');
+procedure DPAPI_SaveSecretToFile(const Secret,
+                                       AppName,
+                                       FileName: string;
+                                 const UserScope: Boolean = True;
+                                 const Entropy: string = '');
 
 { Načte a dešifruje tajemství uložené pomocí DPAPI_SaveSecretToFile. }
-function DPAPI_LoadSecretFromFile(const AppName, FileName: string;
-  const UserScope: Boolean = True; const Entropy: string = ''): string;
+function DPAPI_LoadSecretFromFile(const AppName,
+                                        FileName: string;
+                                  const UserScope: Boolean = True;
+                                  const Entropy: string = ''): string;
 
 { Načte a dešifruje tajemství uložené pomocí DPAPI_SaveSecretToFile. }
 {Hodí se tam, kde nechceš přerušit běh (např. UI), ale jen zobrazit chybu:}
-function TryDPAPI_LoadSecretFromFile(const AppName, FileName: string;
-  const UserScope: Boolean; const Entropy: string; out Secret: string; out ErrMsg: string): Boolean;
+function TryDPAPI_LoadSecretFromFile(const AppName,
+                                           FileName: string;
+                                     const UserScope: Boolean;
+                                     const Entropy: string;
+                                     out   Secret: string;
+                                     out   ErrMsg: string): Boolean;
 
 
 { Uloží tajemství (string) do %APPDATA%\AppName\FileName jako DPAPI-chráněný blob.
@@ -38,17 +47,62 @@ function TryDPAPI_LoadSecretFromFile(const AppName, FileName: string;
   UserScope=False → vázané na počítač (LOCAL_MACHINE).
   Entropy je volitelná „dodatečná sůl“ – musí být stejná pro Save/Load. }
 { ukládání s description  SID, DOMAIN, UZIVATEL}
-procedure DPAPI_SaveSecretToFile_WithDescr(const Secret, AppName, FileName, Description: string;
-  const UserScope: Boolean = True; const Entropy: string = '');
+procedure DPAPI_SaveSecretToFile_WithDescr(const Secret,
+                                                 AppName,
+                                                 FileName,
+                                                 Description: string;
+                                           const UserScope: Boolean = True;
+                                           const Entropy: string = '');
 
 
 { Načte a dešifruje tajemství uložené pomocí DPAPI_SaveSecretToFile. }
 { čtení s návratem description  SID, DOMAIN, UZIVATEL}
-function DPAPI_LoadSecretFromFile_WithDescr(const AppName, FileName: string;
-  const UserScope: Boolean; const Entropy: string; out Description: string): string;
+function DPAPI_LoadSecretFromFile_WithDescr(const AppName,
+                                                  FileName: string;
+                                            const UserScope: Boolean;
+                                            const Entropy: string;
+                                            out   Description: string): string;
 
 
+{ Uloží tajemství (string) do DB
+  UserScope=True  → vázané na přihlášeného uživatele (doporučeno).
+  UserScope=False → vázané na počítač (LOCAL_MACHINE).
+  Entropy je volitelná „dodatečná sůl“ – musí být stejná pro Save/Load. }
+{ ukládání do DB s description  SID, DOMAIN, UZIVATEL}
+function DPAPI_ProtectStringToBase64_WithDescr(const Secret,
+                                                     Description: string;
+                                               const UserScope: Boolean = True;
+                                               const Entropy: string = ''): string;
 
+{ Načte a dešifruje tajemství uložené pomocí DPAPI_ProtectStringToBase64_WithDescr. }
+{ čtení z DB s návratem description  SID, DOMAIN, UZIVATEL}
+function DPAPI_UnprotectBase64ToString_WithDescr(const Base64Blob: string;
+                                                 out   Description: string;
+                                                 const UserScope: Boolean = True;
+                                                 const Entropy: string = '' ): string;
+
+
+{ Try varianta
+  Uloží tajemství (string) do DB
+  UserScope=True  → vázané na přihlášeného uživatele (doporučeno).
+  UserScope=False → vázané na počítač (LOCAL_MACHINE).
+  Entropy je volitelná „dodatečná sůl“ – musí být stejná pro Save/Load. }
+{ ukládání do DB s description  SID, DOMAIN, UZIVATEL}
+function TryDPAPI_ProtectStringToBase64_WithDescr(const Secret,
+                                                        Description: string;
+                                                  const UserScope: Boolean;
+                                                  const Entropy: string;
+                                                  out   Base64Blob,
+                                                        Err: string): Boolean;
+{ Try varianta
+   Načte a dešifruje tajemství uložené pomocí DPAPI_ProtectStringToBase64_WithDescr. }
+{ čtení z DB s návratem description  SID, DOMAIN, UZIVATEL}
+function TryDPAPI_UnprotectBase64ToString_WithDescr(const Base64Blob: string;
+                                                    const UserScope: Boolean;
+                                                    const Entropy: string;
+                                                    out   Secret,
+                                                          Description,
+                                                          Err: string): Boolean;
 
 
 { Helper pro cestu do %APPDATA%\AppName\FileName }
@@ -281,8 +335,11 @@ end;
 
 { ===== Veřejné API – se soubory ===== }
 
-procedure DPAPI_SaveSecretToFile(const Secret, AppName, FileName: string;
-  const UserScope: Boolean; const Entropy: string);
+procedure DPAPI_SaveSecretToFile(const Secret,
+                                       AppName,
+                                       FileName: string;
+                                 const UserScope: Boolean = True;
+                                 const Entropy: string = '');
 var
   blob: TBytes;
   path: string;
@@ -315,8 +372,10 @@ end;
 //  end;
 //end;
 
-function DPAPI_LoadSecretFromFile(const AppName, FileName: string;
-  const UserScope: Boolean; const Entropy: string): string;
+function DPAPI_LoadSecretFromFile(const AppName,
+                                        FileName: string;
+                                  const UserScope: Boolean = True;
+                                  const Entropy: string = ''): string;
 var
   blob: TBytes;
   path: string;
@@ -353,8 +412,12 @@ begin
 end;
 
 
-function TryDPAPI_LoadSecretFromFile(const AppName, FileName: string;
-  const UserScope: Boolean; const Entropy: string; out Secret: string; out ErrMsg: string): Boolean;
+function TryDPAPI_LoadSecretFromFile(const AppName,
+                                           FileName: string;
+                                     const UserScope: Boolean;
+                                     const Entropy: string;
+                                     out   Secret: string;
+                                     out   ErrMsg: string): Boolean;
 var
   blob: TBytes;
   path: string;
@@ -395,9 +458,13 @@ end;
 
 
 
-// ukládání s description
-procedure DPAPI_SaveSecretToFile_WithDescr(const Secret, AppName, FileName, Description: string;
-  const UserScope: Boolean = True; const Entropy: string = '');
+// ukládání do souboru s description
+procedure DPAPI_SaveSecretToFile_WithDescr(const Secret,
+                                                 AppName,
+                                                 FileName,
+                                                 Description: string;
+                                           const UserScope: Boolean = True;
+                                           const Entropy: string = '');
 var
   path: string;
   InBlob, OutBlob, EntBlob: DATA_BLOB;
@@ -467,9 +534,12 @@ end;
 
 
 
-// čtení s návratem description
-function DPAPI_LoadSecretFromFile_WithDescr(const AppName, FileName: string;
-  const UserScope: Boolean; const Entropy: string; out Description: string): string;
+// čtení ze souboru s návratem description
+function DPAPI_LoadSecretFromFile_WithDescr(const AppName,
+                                                  FileName: string;
+                                            const UserScope: Boolean;
+                                            const Entropy: string;
+                                            out   Description: string): string;
 var
   path: string;
   blob, entBytes, outBytes: TBytes;
@@ -547,6 +617,157 @@ end;
 
 
 
+// ukládání do DB s description
+function DPAPI_ProtectStringToBase64_WithDescr(const Secret,
+                                                     Description: string;
+                                               const UserScope: Boolean = True;
+                                               const Entropy: string = ''): string;
+var
+  InBlob, OutBlob, EntBlob: DATA_BLOB;
+  InBytes, EntBytes, OutBytes: TBytes;
+  Flags: DWORD;
+begin
+  Result := '';
+
+  // připrav vstupní data
+  InBytes  := TEncoding.UTF8.GetBytes(Secret);
+  EntBytes := TEncoding.UTF8.GetBytes(Entropy);
+
+  ZeroMemory(@InBlob, SizeOf(InBlob));
+  ZeroMemory(@OutBlob, SizeOf(OutBlob));
+  ZeroMemory(@EntBlob, SizeOf(EntBlob));
+
+  if Length(InBytes) > 0 then begin
+    InBlob.cbData := Length(InBytes);
+    InBlob.pbData := PBYTE(InBytes);
+  end;
+
+  if Length(EntBytes) > 0 then begin
+    EntBlob.cbData := Length(EntBytes);
+    EntBlob.pbData := PBYTE(EntBytes);
+  end;
+
+  Flags := CRYPTPROTECT_UI_FORBIDDEN;
+  if not UserScope then
+    Flags := Flags or CRYPTPROTECT_LOCAL_MACHINE;
+
+  if not CryptProtectData(@InBlob, PWideChar(Description), @EntBlob, nil, nil, Flags, @OutBlob) then
+    RaiseLastOSError;
+  try
+    // vytvoř Base64 z DPAPI blobu
+    SetLength(OutBytes, OutBlob.cbData);
+    if OutBlob.cbData > 0 then
+      Move(OutBlob.pbData^, OutBytes[0], OutBlob.cbData);
+    Result := TNetEncoding.Base64.EncodeBytesToString(OutBytes);
+    // wipe dočasného bufferu
+    if Length(OutBytes) > 0 then FillChar(OutBytes[0], Length(OutBytes), 0);
+  finally
+    if OutBlob.pbData <> nil then
+      LocalFree(HLOCAL(OutBlob.pbData));
+    if Length(InBytes) > 0 then FillChar(InBytes[0], Length(InBytes), 0);
+    if Length(EntBytes) > 0 then FillChar(EntBytes[0], Length(EntBytes), 0);
+  end;
+end;
+
+// čtení z DB s description
+function DPAPI_UnprotectBase64ToString_WithDescr(const Base64Blob: string;
+                                                 out   Description: string;
+                                                 const UserScope: Boolean = True;
+                                                 const Entropy: string = '' ): string;
+var
+  InBlob, OutBlob, EntBlob: DATA_BLOB;
+  BlobBytes, EntBytes, OutBytes: TBytes;
+  Flags: DWORD;
+  DescPW: PWideChar;
+begin
+  Result := '';
+  Description := '';
+
+  if Base64Blob = '' then
+    raise Exception.Create('DPAPI: prázdný Base64 blob.');
+
+  BlobBytes := TNetEncoding.Base64.DecodeStringToBytes(Base64Blob);
+  EntBytes  := TEncoding.UTF8.GetBytes(Entropy);
+
+  ZeroMemory(@InBlob, SizeOf(InBlob));
+  ZeroMemory(@OutBlob, SizeOf(OutBlob));
+  ZeroMemory(@EntBlob, SizeOf(EntBlob));
+
+  if Length(BlobBytes) > 0 then begin
+    InBlob.cbData := Length(BlobBytes);
+    InBlob.pbData := PBYTE(BlobBytes);
+  end;
+
+  if Length(EntBytes) > 0 then begin
+    EntBlob.cbData := Length(EntBytes);
+    EntBlob.pbData := PBYTE(EntBytes);
+  end;
+
+  Flags := CRYPTPROTECT_UI_FORBIDDEN;
+  if not UserScope then
+    Flags := Flags or CRYPTPROTECT_LOCAL_MACHINE;
+
+  DescPW := nil;
+  if not CryptUnprotectData(@InBlob, @DescPW, @EntBlob, nil, nil, Flags, @OutBlob) then
+    RaiseLastOSError;
+  try
+    if DescPW <> nil then
+      Description := DescPW;
+
+    SetLength(OutBytes, OutBlob.cbData);
+    if OutBlob.pbData <> nil then
+      Move(OutBlob.pbData^, OutBytes[0], OutBlob.cbData);
+
+    Result := TEncoding.UTF8.GetString(OutBytes);
+    if Length(OutBytes) > 0 then FillChar(OutBytes[0], Length(OutBytes), 0);
+  finally
+    if DescPW <> nil then LocalFree(HLOCAL(DescPW));
+    if OutBlob.pbData <> nil then LocalFree(HLOCAL(OutBlob.pbData));
+    if Length(BlobBytes) > 0 then FillChar(BlobBytes[0], Length(BlobBytes), 0);
+    if Length(EntBytes) > 0 then FillChar(EntBytes[0], Length(EntBytes), 0);
+  end;
+end;
+
+// Try-varianta (nezvedá výjimky)
+// ukládání do DB s description
+function TryDPAPI_ProtectStringToBase64_WithDescr(const Secret,
+                                                        Description: string;
+                                                  const UserScope: Boolean;
+                                                  const Entropy: string;
+                                                  out   Base64Blob,
+                                                        Err: string): Boolean;
+begin
+  Result := False;
+  Base64Blob := '';
+  Err := '';
+  try
+    Base64Blob := DPAPI_ProtectStringToBase64_WithDescr(Secret, Description, UserScope, Entropy);
+    Result := True;
+  except
+    on E: Exception do Err := E.Message;
+  end;
+end;
+
+// Try-varianta (nezvedá výjimky)
+// čtení z DB s description
+function TryDPAPI_UnprotectBase64ToString_WithDescr(const Base64Blob: string;
+                                                    const UserScope: Boolean;
+                                                    const Entropy: string;
+                                                    out   Secret,
+                                                          Description,
+                                                          Err: string): Boolean;
+begin
+  Result := False;
+  Secret := '';
+  Description := '';
+  Err := '';
+  try
+    Secret := DPAPI_UnprotectBase64ToString_WithDescr(Base64Blob, Description, UserScope, Entropy);
+    Result := True;
+  except
+    on E: Exception do Err := E.Message;
+  end;
+end;
 
 
 

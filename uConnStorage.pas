@@ -22,18 +22,26 @@ function GetConnFilePath(const AppName, FileName: string): string;
 { Uloží zašifrovaný connection string (.sec) do %APPDATA%\AppName\FileName
   Šifrování: AES-256/CBC + Salt + IV + HMAC-SHA256 (autentizace)
   Password je master heslo v plaintextu (např. z DPAPI helperu). }
-procedure SaveEncryptedConnectStringToDat_HMAC(const ConnStr, Password, AppName, FileName: string
+procedure SaveEncryptedConnectStringToDat_HMAC(const ConnStr,
+                                                     Password,
+                                                     AppName,
+                                                     FileName: string
 );
 
 { Načte a ověří .sec ze %APPDATA%\AppName\FileName a vrátí plaintext ConnectString.
   Při chybě HMAC/hesla/poškození vyhodí výjimku. }
-function LoadEncryptedConnectStringFromDat_HMAC(const Password, AppName, FileName: string): string;
+function LoadEncryptedConnectStringFromDat_HMAC(const Password,
+                                                      AppName,
+                                                      FileName: string): string;
 
 { Uloží .sec do libovolné cesty (např. \\server\share\erp.sec)}
-procedure SaveEncryptedConnectStringToFile_HMAC(const ConnStr, Password, FullPath: string);
+procedure SaveEncryptedConnectStringToFile_HMAC(const ConnStr,
+                                                      Password,
+                                                      FullPath: string);
 
 { Načte .sec z libovolné cesty}
-function LoadEncryptedConnectStringFromFile_HMAC(const Password, FullPath: string): string;
+function LoadEncryptedConnectStringFromFile_HMAC(const Password,
+                                                       FullPath: string): string;
 
 implementation
 
