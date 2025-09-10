@@ -53,7 +53,12 @@ function EncryptConnectStringToBase64_HMAC(const ConnStr, Password: string): str
 function DecryptConnectStringFromBase64_HMAC(const Password, Base64Blob: string): string;
 
 { Nevyhazující varianty (vrací False a naplní Err zprávu) }
+{ Uloží šifrovaný ConnectString do Base64 textu (pro DB) }
 function TryEncryptConnectStringToBase64_HMAC(const ConnStr, Password: string; out Base64Blob, Err: string): Boolean;
+
+
+{ Nevyhazující varianty (vrací False a naplní Err zprávu) }
+{ Načte (dešifruje) ConnectString z Base64 textu }
 function TryDecryptConnectStringFromBase64_HMAC(const Password, Base64Blob: string; out ConnStr, Err: string): Boolean;
 
 
