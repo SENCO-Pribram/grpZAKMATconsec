@@ -43,9 +43,6 @@ procedure SaveEncryptedConnectStringToFile_HMAC(const ConnStr,
 function LoadEncryptedConnectStringFromFile_HMAC(const Password,
                                                        FullPath: string): string;
 
-
-
-
 { Uloží šifrovaný ConnectString do Base64 textu (pro DB) }
 function EncryptConnectStringToBase64_HMAC(const ConnStr, Password: string): string;
 
@@ -56,11 +53,9 @@ function DecryptConnectStringFromBase64_HMAC(const Password, Base64Blob: string)
 { Uloží šifrovaný ConnectString do Base64 textu (pro DB) }
 function TryEncryptConnectStringToBase64_HMAC(const ConnStr, Password: string; out Base64Blob, Err: string): Boolean;
 
-
 { Nevyhazující varianty (vrací False a naplní Err zprávu) }
 { Načte (dešifruje) ConnectString z Base64 textu }
 function TryDecryptConnectStringFromBase64_HMAC(const Password, Base64Blob: string; out ConnStr, Err: string): Boolean;
-
 
 implementation
 
@@ -93,18 +88,23 @@ function CryptAcquireContext(phProv: PHCRYPTPROV; pszContainer, pszProvider: LPC
   dwProvType, dwFlags: DWORD): BOOL; stdcall; external 'advapi32.dll' name 'CryptAcquireContextW';
 function CryptCreateHash(hProv: HCRYPTPROV; Algid: ALG_ID; hKey: HCRYPTKEY;
   dwFlags: DWORD; phHash: PHCRYPTHASH): BOOL; stdcall; external 'advapi32.dll';
+
 function CryptHashData(hHash: HCRYPTHASH; pbData: PBYTE; dwDataLen, dwFlags: DWORD): BOOL; stdcall; external 'advapi32.dll';
 function CryptGetHashParam(hHash: HCRYPTHASH; dwParam: DWORD; pbData: PBYTE;
   var pdwDataLen: DWORD; dwFlags: DWORD): BOOL; stdcall; external 'advapi32.dll';
+
 function CryptDeriveKey(hProv: HCRYPTPROV; Algid: ALG_ID; hBaseData: HCRYPTHASH;
   dwFlags: DWORD; phKey: PHCRYPTKEY): BOOL; stdcall; external 'advapi32.dll';
 function CryptEncrypt(hKey: HCRYPTKEY; hHash: HCRYPTHASH; Final: BOOL;
   dwFlags: DWORD; pbData: PBYTE; var pdwDataLen, dwBufLen: DWORD): BOOL; stdcall; external 'advapi32.dll';
+
 function CryptDecrypt(hKey: HCRYPTKEY; hHash: HCRYPTHASH; Final: BOOL;
   dwFlags: DWORD; pbData: PBYTE; var pdwDataLen: DWORD): BOOL; stdcall; external 'advapi32.dll';
 function CryptDestroyHash(hHash: HCRYPTHASH): BOOL; stdcall; external 'advapi32.dll';
+
 function CryptDestroyKey(hKey: HCRYPTKEY): BOOL; stdcall; external 'advapi32.dll';
 function CryptReleaseContext(hProv: HCRYPTPROV; dwFlags: DWORD): BOOL; stdcall; external 'advapi32.dll';
+
 function CryptGenRandom(hProv: HCRYPTPROV; dwLen: DWORD; pbBuffer: PBYTE): BOOL; stdcall; external 'advapi32.dll';
 function CryptSetKeyParam(hKey: HCRYPTKEY; dwParam: DWORD; pbData: PBYTE; dwFlags: DWORD): BOOL; stdcall; external 'advapi32.dll';
 
@@ -174,6 +174,7 @@ begin
   finally
     CryptReleaseContext(Prov, 0);
   end;
+
 end;
 
 function SHA256_Bytes(const Data: TBytes): TBytes;
@@ -201,6 +202,7 @@ begin
   finally
     CryptReleaseContext(Prov, 0);
   end;
+
 end;
 
 function HMAC_SHA256(const Key, Data: TBytes): TBytes;
@@ -240,6 +242,7 @@ begin
 end;
 
 { MAC klíč = SHA256( UTF-16LE(Password) || Salt || 'MAC' ) }
+
 function DeriveMacKey(const Password: string; const Salt: TBytes): TBytes;
 var
   pw, labelMac, mix: TBytes;
@@ -255,6 +258,7 @@ begin
 end;
 
 { AES-256 klíč přes SHA256(Password||Salt) → CryptDeriveKey(AES-256) }
+
 procedure DeriveAes256Key(const Password: string; const Salt: TBytes;
   out Prov: HCRYPTPROV; out Key: HCRYPTKEY);
 var
@@ -643,10 +647,8 @@ begin
   end;
 end;
 
-
-
-
 // Uloží šifrovaný ConnectString do Base64 textu (pro DB)
+
 function EncryptConnectStringToBase64_HMAC(const ConnStr, Password: string): string;
 const
   MAGIC: array[0..3] of AnsiChar = ('A','C','S','F');
@@ -734,6 +736,7 @@ begin
 end;
 
 // Načte (dešifruje) ConnectString z Base64 textu
+
 function DecryptConnectStringFromBase64_HMAC(const Password, Base64Blob: string): string;
 const
   MAGIC: array[0..3] of AnsiChar = ('A','C','S','F');
@@ -787,6 +790,7 @@ begin
   SetLength(HmacStored, 32);
 
   if bSaltLen>0 then begin Move(Data[p], Salt[0], bSaltLen); Inc(p, bSaltLen); end;
+
   if bIVLen>0   then begin Move(Data[p], IV[0], bIVLen);   Inc(p, bIVLen);   end;
   if dwCipher>0 then begin Move(Data[p], Cipher[0], dwCipher); Inc(p, dwCipher); end;
   Move(Data[p], HmacStored[0], 32); Inc(p, 32);
@@ -825,6 +829,7 @@ begin
 end;
 
 // Nevyhazující varianty (vrací False a naplní Err zprávu)
+
 function TryEncryptConnectStringToBase64_HMAC(
   const ConnStr, Password: string; out Base64Blob, Err: string): Boolean;
 begin
@@ -840,6 +845,7 @@ begin
 end;
 
 // Nevyhazující varianty (vrací False a naplní Err zprávu)
+
 function TryDecryptConnectStringFromBase64_HMAC(
   const Password, Base64Blob: string; out ConnStr, Err: string): Boolean;
 begin
@@ -854,9 +860,4 @@ begin
   end;
 end;
 
-
 end.
-
-
-
-

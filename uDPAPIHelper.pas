@@ -41,7 +41,6 @@ function TryDPAPI_LoadSecretFromFile(const AppName,
                                      out   Secret: string;
                                      out   ErrMsg: string): Boolean;
 
-
 { Uloží tajemství (string) do %APPDATA%\AppName\FileName jako DPAPI-chráněný blob.
   UserScope=True  → vázané na přihlášeného uživatele (doporučeno).
   UserScope=False → vázané na počítač (LOCAL_MACHINE).
@@ -54,7 +53,6 @@ procedure DPAPI_SaveSecretToFile_WithDescr(const Secret,
                                            const UserScope: Boolean = True;
                                            const Entropy: string = '');
 
-
 { Načte a dešifruje tajemství uložené pomocí DPAPI_SaveSecretToFile. }
 { čtení s návratem description  SID, DOMAIN, UZIVATEL}
 function DPAPI_LoadSecretFromFile_WithDescr(const AppName,
@@ -62,7 +60,6 @@ function DPAPI_LoadSecretFromFile_WithDescr(const AppName,
                                             const UserScope: Boolean;
                                             const Entropy: string;
                                             out   Description: string): string;
-
 
 { Uloží tajemství (string) do DB
   UserScope=True  → vázané na přihlášeného uživatele (doporučeno).
@@ -80,7 +77,6 @@ function DPAPI_UnprotectBase64ToString_WithDescr(const Base64Blob: string;
                                                  out   Description: string;
                                                  const UserScope: Boolean = True;
                                                  const Entropy: string = '' ): string;
-
 
 { Try varianta
   Uloží tajemství (string) do DB
@@ -103,7 +99,6 @@ function TryDPAPI_UnprotectBase64ToString_WithDescr(const Base64Blob: string;
                                                     out   Secret,
                                                           Description,
                                                           Err: string): Boolean;
-
 
 { Helper pro cestu do %APPDATA%\AppName\FileName }
 function GetAppDataFilePath(const AppName, FileName: string): string;
@@ -133,7 +128,6 @@ type
 function CryptProtectData(pDataIn: PDATA_BLOB; szDataDescr: LPCWSTR;
   pOptionalEntropy: PDATA_BLOB; pvReserved: Pointer; pPromptStruct: Pointer;
   dwFlags: DWORD; pDataOut: PDATA_BLOB): BOOL; stdcall; external 'crypt32.dll';
-
 function CryptUnprotectData(pDataIn: PDATA_BLOB; ppszDataDescr: PPWideChar;
   pOptionalEntropy: PDATA_BLOB; pvReserved: Pointer; pPromptStruct: Pointer;
   dwFlags: DWORD; pDataOut: PDATA_BLOB): BOOL; stdcall; external 'crypt32.dll';
@@ -175,6 +169,7 @@ begin
     if h <> 0 then
       @_RtlSecureZeroMemory := GetProcAddress(h, 'RtlSecureZeroMemory');
   end;
+
 end;
 
 { ===== Interní utility – převody a mazání ===== }
@@ -352,6 +347,7 @@ begin
   finally
     WipeBytes(blob);
   end;
+
 end;
 
 //function DPAPI_LoadSecretFromFile(const AppName, FileName: string;
@@ -411,7 +407,6 @@ begin
   WipeBytes(blob);
 end;
 
-
 function TryDPAPI_LoadSecretFromFile(const AppName,
                                            FileName: string;
                                      const UserScope: Boolean;
@@ -453,12 +448,8 @@ begin
   end;
 end;
 
-
-
-
-
-
 // ukládání do souboru s description
+
 procedure DPAPI_SaveSecretToFile_WithDescr(const Secret,
                                                  AppName,
                                                  FileName,
@@ -529,12 +520,8 @@ begin
   end;
 end;
 
-
-
-
-
-
 // čtení ze souboru s návratem description
+
 function DPAPI_LoadSecretFromFile_WithDescr(const AppName,
                                                   FileName: string;
                                             const UserScope: Boolean;
@@ -615,9 +602,8 @@ begin
   end;
 end;
 
-
-
 // ukládání do DB s description
+
 function DPAPI_ProtectStringToBase64_WithDescr(const Secret,
                                                      Description: string;
                                                const UserScope: Boolean = True;
@@ -670,6 +656,7 @@ begin
 end;
 
 // čtení z DB s description
+
 function DPAPI_UnprotectBase64ToString_WithDescr(const Base64Blob: string;
                                                  out   Description: string;
                                                  const UserScope: Boolean = True;
@@ -730,6 +717,7 @@ end;
 
 // Try-varianta (nezvedá výjimky)
 // ukládání do DB s description
+
 function TryDPAPI_ProtectStringToBase64_WithDescr(const Secret,
                                                         Description: string;
                                                   const UserScope: Boolean;
@@ -750,6 +738,7 @@ end;
 
 // Try-varianta (nezvedá výjimky)
 // čtení z DB s description
+
 function TryDPAPI_UnprotectBase64ToString_WithDescr(const Base64Blob: string;
                                                     const UserScope: Boolean;
                                                     const Entropy: string;
@@ -769,15 +758,8 @@ begin
   end;
 end;
 
-
-
-
-
-
-
-
-
 // ====== Minimalní deklarace pro čtení SID aktuálního uživatele ======
+
 type
   PSID = Pointer;
 
@@ -792,12 +774,12 @@ type
   end;
 
 // Starší Delphi nemusí mít enum; stačí konstanta
+
 const
   TokenUser = 1; // TOKEN_INFORMATION_CLASS hodnoty: 1 = TokenUser
 
 function OpenProcessToken(ProcessHandle: THandle; DesiredAccess: DWORD;
   var TokenHandle: THandle): BOOL; stdcall; external 'advapi32.dll';
-
 function GetTokenInformation(TokenHandle: THandle; TokenInformationClass: DWORD;
   TokenInformation: Pointer; TokenInformationLength: DWORD;
   var ReturnLength: DWORD): BOOL; stdcall; external 'advapi32.dll';
@@ -808,6 +790,7 @@ function ConvertSidToStringSidW(Sid: PSID; var StringSid: LPWSTR): BOOL; stdcall
 // CloseHandle/GetCurrentProcess jsou v kernel32 (už bývá v unitě Windows)
 
 // helper: získá SID jako string
+
 function GetCurrentUserSidString: string;
 var
   hTok: THandle;
@@ -847,11 +830,11 @@ begin
     if hTok <> 0 then
       CloseHandle(hTok);
   end;
+
 end;
 
-
-
 // --- Deklarace (pokud je ještě nemáš v unitě) ---
+
 type
   EXTENDED_NAME_FORMAT = ULONG;
 
@@ -868,8 +851,8 @@ function LookupAccountSidW(lpSystemName: LPCWSTR; Sid: Pointer; Name: LPWSTR; va
 
 // (musíš mít také deklarace OpenProcessToken, GetTokenInformation, TOKEN_USER/PSID atd. – jak jsme přidávali dřív)
 
-
 // --- Funkce: DOMAIN a User zvlášť (bez výjimek, vrací True/False) ---
+
 function GetCurrentUserDomainAndName(out Domain, User: string): Boolean;
 var
   size: ULONG;
@@ -972,6 +955,7 @@ begin
 end;
 
 // --- Pohodlné obaly (volitelné) ---
+
 function GetCurrentUserDomain: string;
 var
   d, u: string;
@@ -1006,8 +990,6 @@ begin
   else
     Result := '';
 end;
-
-
 
 initialization
   InitSecureZero;

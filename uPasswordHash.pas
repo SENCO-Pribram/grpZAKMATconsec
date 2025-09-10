@@ -40,13 +40,15 @@ function CryptAcquireContext(phProv: PHCRYPTPROV; pszContainer, pszProvider: LPC
   dwProvType, dwFlags: DWORD): BOOL; stdcall; external 'advapi32.dll' name 'CryptAcquireContextW';
 function CryptCreateHash(hProv: HCRYPTPROV; Algid: DWORD; hKey: ULONG_PTR;
   dwFlags: DWORD; phHash: PHCRYPTHASH): BOOL; stdcall; external 'advapi32.dll';
+
 function CryptHashData(hHash: HCRYPTHASH; pbData: PBYTE; dwDataLen, dwFlags: DWORD): BOOL; stdcall; external 'advapi32.dll';
 function CryptGetHashParam(hHash: HCRYPTHASH; dwParam: DWORD; pbData: PBYTE;
   var pdwDataLen: DWORD; dwFlags: DWORD): BOOL; stdcall; external 'advapi32.dll';
+
 function CryptDestroyHash(hHash: HCRYPTHASH): BOOL; stdcall; external 'advapi32.dll';
 function CryptReleaseContext(hProv: HCRYPTPROV; dwFlags: DWORD): BOOL; stdcall; external 'advapi32.dll';
-function CryptGenRandom(hProv: HCRYPTPROV; dwLen: DWORD; pbBuffer: PBYTE): BOOL; stdcall; external 'advapi32.dll';
 
+function CryptGenRandom(hProv: HCRYPTPROV; dwLen: DWORD; pbBuffer: PBYTE): BOOL; stdcall; external 'advapi32.dll';
 { ===== Utility ===== }
 
 procedure WipeBytes(var B: TBytes); inline;
@@ -80,6 +82,7 @@ begin
   finally
     CryptReleaseContext(Prov, 0);
   end;
+
 end;
 
 { ===== SHA-256 / HMAC-SHA256 ===== }
@@ -108,6 +111,7 @@ begin
   finally
     CryptReleaseContext(Prov, 0);
   end;
+
 end;
 
 function HMAC_SHA256(const Key, Data: TBytes): TBytes;
@@ -203,6 +207,7 @@ begin
   finally
     WipeBytes(PW);
   end;
+
 end;
 
 { ===== Public API ===== }
@@ -241,4 +246,3 @@ begin
 end;
 
 end.
-

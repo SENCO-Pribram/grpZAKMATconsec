@@ -75,18 +75,23 @@ function CryptAcquireContext(phProv: PHCRYPTPROV; pszContainer, pszProvider: LPC
   dwProvType, dwFlags: DWORD): BOOL; stdcall; external 'advapi32.dll' name 'CryptAcquireContextW';
 function CryptCreateHash(hProv: HCRYPTPROV; Algid: ALG_ID; hKey: HCRYPTKEY;
   dwFlags: DWORD; phHash: PHCRYPTHASH): BOOL; stdcall; external 'advapi32.dll';
+
 function CryptHashData(hHash: HCRYPTHASH; pbData: PBYTE; dwDataLen, dwFlags: DWORD): BOOL; stdcall; external 'advapi32.dll';
 function CryptGetHashParam(hHash: HCRYPTHASH; dwParam: DWORD; pbData: PBYTE;
   var pdwDataLen: DWORD; dwFlags: DWORD): BOOL; stdcall; external 'advapi32.dll';
+
 function CryptImportKey(hProv: HCRYPTPROV; pbData: PBYTE; dwDataLen: DWORD;
   hPubKey: HCRYPTKEY; dwFlags: DWORD; phKey: PHCRYPTKEY): BOOL; stdcall; external 'advapi32.dll';
 function CryptEncrypt(hKey: HCRYPTKEY; hHash: HCRYPTHASH; Final: BOOL;
   dwFlags: DWORD; pbData: PBYTE; var pdwDataLen, dwBufLen: DWORD): BOOL; stdcall; external 'advapi32.dll';
+
 function CryptDecrypt(hKey: HCRYPTKEY; hHash: HCRYPTHASH; Final: BOOL;
   dwFlags: DWORD; pbData: PBYTE; var pdwDataLen: DWORD): BOOL; stdcall; external 'advapi32.dll';
 function CryptDestroyHash(hHash: HCRYPTHASH): BOOL; stdcall; external 'advapi32.dll';
+
 function CryptDestroyKey(hKey: HCRYPTKEY): BOOL; stdcall; external 'advapi32.dll';
 function CryptReleaseContext(hProv: HCRYPTPROV; dwFlags: DWORD): BOOL; stdcall; external 'advapi32.dll';
+
 function CryptGenRandom(hProv: HCRYPTPROV; dwLen: DWORD; pbBuffer: PBYTE): BOOL; stdcall; external 'advapi32.dll';
 function CryptSetKeyParam(hKey: HCRYPTKEY; dwParam: DWORD; pbData: PBYTE; dwFlags: DWORD): BOOL; stdcall; external 'advapi32.dll';
 
@@ -142,6 +147,7 @@ begin
   finally
     CryptReleaseContext(Prov, 0);
   end;
+
 end;
 
 { ===== SHA-256 / HMAC-SHA256 ===== }
@@ -171,6 +177,7 @@ begin
   finally
     CryptReleaseContext(Prov, 0);
   end;
+
 end;
 
 function HMAC_SHA256(const Key, Data: TBytes): TBytes;
@@ -209,8 +216,8 @@ begin
   WipeBytes(Outer);
 end;
 
-
 { --- Big-endian helper pro PBKDF2 counter --- }
+
 function Swap32(x: DWORD): DWORD; inline;
 begin
   Result := ((x and $000000FF) shl 24) or
@@ -220,6 +227,7 @@ begin
 end;
 
 { --- PBKDF2-HMAC-SHA256 (Password -> DK) --- }
+
 function PBKDF2_HMAC_SHA256(const Password: string; const Salt: TBytes;
   Iterations, DKLen: Integer): TBytes;
 var
@@ -276,6 +284,7 @@ begin
   finally
     WipeBytes(PW);
   end;
+
 end;
 
 { ===== Import AES klíče z raw 32 bytů (PBKDF2) ===== }
@@ -488,6 +497,7 @@ begin
   SetLength(HmacStored, 32);
 
   if bSalt>0 then begin Move(Data[p], Salt[0], bSalt); Inc(p, bSalt); end;
+
   if bIV>0   then begin Move(Data[p], IV[0], bIV); Inc(p, bIV); end;
   if CipherLen>0 then begin Move(Data[p], Cipher[0], CipherLen); Inc(p, CipherLen); end;
   Move(Data[p], HmacStored[0], 32); Inc(p, 32);
@@ -537,15 +547,6 @@ begin
 end;
 
 end.
-
-
-
-
-
-
-
-
-
 
 //unit uCryptoHelper_AES;
 //
